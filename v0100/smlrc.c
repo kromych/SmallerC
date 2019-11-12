@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*            Produces 16/32-bit 80386 assembly output for NASM.             */
 /*             Produces 32-bit MIPS assembly output for gcc/as.              */
 /*             Produces 32-bit TR3200 assembly output for vasm.              */
+/*             Produces 64-bit X86_64 assembly output for gcc/as.            */
 /*                                                                           */
 /*                                 Main file                                 */
 /*                                                                           */
@@ -76,6 +77,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if UINT_MAX >= 0xFFFFFFFF
 #define CAN_COMPILE_32BIT
+#endif
+
+#if ULONG_MAX >= 0xffffffffffffffffUL
+#define CAN_COMPILE_64BIT
 #endif
 
 #else // #ifndef __SMALLER_C__
@@ -1012,7 +1017,9 @@ unsigned char tktk[] =
   // Helper (pseudo-)tokens:
   tokNumInt, tokLitStr, tokLocalOfs, tokNumUint, tokIdent, tokShortCirc,
   tokSChar, tokShort, tokLong, tokUChar, tokUShort, tokULong, tokNumFloat,
-  tokNumCharWide, tokLitStrWide
+  tokNumCharWide, tokLitStrWide,
+  // Generated tokens:
+  tokIfNot
 };
 
 char* tks[] =
@@ -1035,7 +1042,9 @@ char* tks[] =
   // Helper (pseudo-)tokens:
   "<NumInt>",  "<LitStr>", "<LocalOfs>", "<NumUint>", "<Ident>", "<ShortCirc>",
   "signed char", "short", "long", "unsigned char", "unsigned short", "unsigned long", "float",
-  "<NumCharWide>", "<LitStrWide>"
+  "<NumCharWide>", "<LitStrWide>",
+  // Generated tokens:
+  "<IfNot>"
 };
 
 STATIC
@@ -1569,11 +1578,14 @@ int GetNumber(void)
   char* p = CharQueue;
   int ch = *p;
   int leadingZero = (ch == '0');
-  unsigned n = 0;
+  unsigned int n = 0;
   int type = 0;
   int uSuffix = 0;
 #ifdef CAN_COMPILE_32BIT
   int lSuffix = 0;
+#endif
+#ifdef CAN_COMPILE_64BIT
+  int llSuffix = 0;
 #endif
 #ifndef NO_FP
   int mcnt = 0, eexp = 0;
@@ -1791,6 +1803,9 @@ int GetNumber(void)
        (SizeOfWord == 2 && !(n >> 15)) // equiv. to SizeOfWord == 2 && n <= 0x7FFF
 #ifdef CAN_COMPILE_32BIT
        || (SizeOfWord == 4 && !(n >> 8 >> 12 >> 11)) // equiv. to SizeOfWord == 4 && n <= 0x7FFFFFFF
+#endif
+#ifdef CAN_COMPILE_64BIT
+       || (SizeOfWord == 8 && !(n >> 8 >> 12 >> 12 >> 8 >> 12 >> 11)) // equiv. to SizeOfWord == 4 && n <= 0x7FFFFFFFFFFFFFFF
 #endif
       )
      )
@@ -2391,7 +2406,11 @@ void errorRedecl(char* s)
 #ifdef TR3200
 #include "cgtr3k2.c"
 #else
+#ifdef X86_64
+#include "cgx86_64.c"
+#else
 #include "cgx86.c"
+#endif // #ifdef X86_64
 #endif // #ifdef TR3200
 #endif // #ifdef MIPS
 
