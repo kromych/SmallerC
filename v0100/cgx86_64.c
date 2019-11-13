@@ -41,6 +41,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
        then the higher 64-bits go in rdx.
 */
 
+/* These registers are used as a stack when calculating expressions*/
+
+char*           scratch_registers_q[] = { "%rax", "%rdi", "%rsi", "%rdx", "%rcx", "%r8",  "%r9",  "%r10",  "%r11"  };
+char*           scratch_registers_l[] = { "%eax", "%edi", "%esi", "%edx", "%ecx", "%r8d", "%r9d", "%r10d", "%r11d" };
+char*           scratch_registers_w[] = {  "%ax",  "%di",  "%si",  "%dx",  "%cx", "%r8w", "%r9w", "%r10w", "%r11w" };
+char*           scratch_registers_b[] = {  "%al", "%dil", "%sil",  "%dl",  "%cl", "%r8b", "%r9b", "%r10b", "%r11b" };
+const unsigned  max_scratch_reg = sizeof scratch_registers_q / sizeof scratch_registers_q[0];
+
+char*           scratch_registers_indirect[] = { "(%rax)", "(%rdi)", "(%rsi)", "(%rdx)", "(%rcx)", "(%r8)", "(%r9)", "(%r10)", "(%r11)" };
+
+char*           arg_registers_q[] = { "%rdi", "%rsi", "%rdx", "%rcx", "%r8",  "%r9",  "%r10",  "%r11" };
+const unsigned  max_arg_reg = sizeof arg_registers_q / sizeof arg_registers_q[0];
+
 STATIC
 void GenAddrData(int Size, char* Label, int ofs)
 {
@@ -76,22 +89,175 @@ void GenDumpChar(int ch)
 }
 
 STATIC
+void x64GenCondJump(unsigned op, unsigned label_num, unsigned not)
+{
+  const char* cond_code = "?";
+
+  switch (op)
+  {
+    case tokEQ:       cond_code = not ? "ne" :  "e"; break;
+    case tokNEQ:      cond_code = not ? "e"  : "ne"; break;
+    case tokLEQ:      cond_code = not ? "g"  : "le"; break;
+    case tokGEQ:      cond_code = not ? "l"  : "ge"; break;
+    case tokULess:    cond_code = not ? "ae" :  "b"; break;
+    case tokUGreater: cond_code = not ? "be" :  "a"; break;
+    case tokULEQ:     cond_code = not ? "a"  : "be"; break;
+    case tokUGEQ:     cond_code = not ? "b"  : "ae"; break;
+    default:          errorInternal(640010); break;
+  }
+
+  printf2("\t\tj%s\t\t\t.L%d\t", cond_code, label_num);
+}
+
+STATIC
+void x64GenIf(unsigned op, unsigned label_num)
+{
+  x64GenCondJump(op, label_num, 0);
+}
+
+STATIC
+void x64GenIfNot(unsigned op, unsigned label_num)
+{
+  x64GenCondJump(op, label_num, 1);
+}
+
+STATIC
+void x64GenAssign(unsigned active_reg, signed size)
+{
+  char    size_suff = '?';
+  char**  scratch_registers = NULL;
+
+  if (active_reg < 2)
+  {
+    errorInternal(640002);
+  }
+
+  switch (abs(size))
+  {
+    case 1:
+      size_suff = 'b';
+      scratch_registers = scratch_registers_b;
+
+      break;
+
+    case 2:
+      size_suff = 'w';
+      scratch_registers = scratch_registers_w;
+
+      break;
+
+    case 4:
+      size_suff = 'l';
+      scratch_registers = scratch_registers_l;
+
+      break;
+
+    case 8:
+      size_suff = 'q';
+      scratch_registers = scratch_registers_q;
+
+      break;
+
+    default:
+      errorInternal(640003);
+      break;
+  }
+
+  printf2("\t\tmov%c\t\t%s, %s", size_suff, scratch_registers[active_reg -1], scratch_registers_indirect[active_reg - 2]);
+}
+
+STATIC
+void x64GenDeref(unsigned active_reg, signed size)
+{
+  char    size_suff = '?';
+  char**  scratch_registers = NULL;
+
+  if (active_reg == 0)
+  {
+    errorInternal(640004);
+  }
+
+  switch (abs(size))
+  {
+    case 1:
+      size_suff = 'b';
+      scratch_registers = scratch_registers_b;
+
+      break;
+
+    case 2:
+      size_suff = 'w';
+      scratch_registers = scratch_registers_w;
+
+      break;
+
+    case 4:
+      size_suff = 'l';
+      scratch_registers = scratch_registers_l;
+
+      break;
+
+    case 8:
+      size_suff = 'q';
+      scratch_registers = scratch_registers_q;
+
+      break;
+
+    default:
+      errorInternal(640003);
+      break;
+  }
+
+  printf2("\t\tmov%c\t\t%s, %s", size_suff, scratch_registers_indirect[active_reg - 1], scratch_registers[active_reg - 1]);
+
+  if (abs(size) < 8) 
+  {
+    /* For 32 bit registers, zero-extend is performed by the hardware ? */
+
+    if (size < 0) 
+    {
+      /* Sign-extend */
+      printf2("\n\t\tmovsx%c\t\t%s, %s", size_suff, scratch_registers[active_reg - 1], scratch_registers_q[active_reg - 1]);
+    }
+    else
+    {
+      /* Zero-extend */
+      printf2("\n\t\tmovzx%c\t\t%s, %s", size_suff, scratch_registers[active_reg - 1], scratch_registers_q[active_reg - 1]);
+    }
+  }
+}
+
+STATIC
+void x64GenALU(unsigned active_reg, signed op)
+{
+  const char* op_str = "";
+
+  /* 
+    Mul and Div need special treatment as they have signed and unsigned versions,
+    and use rax and rdx.
+   */
+
+  switch (op)
+  {
+  case '+': op_str = "add"; break;
+  case '-': op_str = "sub"; break;
+
+  case '&': op_str = "and"; break;
+  case '|': op_str =  "or"; break;
+  case '^': op_str = "xor"; break;
+
+  default: errorInternal(6400011); break;
+  }
+
+  printf2("\t\t%sq\t\t%s, %s", op_str, scratch_registers_q[active_reg - 1], scratch_registers_q[active_reg - 2]);
+}
+
+STATIC
 void GenExpr(void)
 {
-  /* These registers are used as a stack when calculating expressions*/
-
-  char*           scratch_registers_q[] = { "%rax", "%rdi", "%rsi", "%rdx", "%rcx", "%r8",  "%r9",  "%r10",  "%r11"  };
-  char*           scratch_registers_l[] = { "%eax", "%edi", "%esi", "%edx", "%ecx", "%r8d", "%r9d", "%r10d", "%r11d" };
-  char*           scratch_registers_w[] = {  "%ax",  "%di",  "%si",  "%dx",  "%cx", "%r8w", "%r9w", "%r10w", "%r11w" };
-  char*           scratch_registers_b[] = {  "%al", "%dil", "%sil",  "%dl",  "%cl", "%r8b", "%r9b", "%r10b", "%r11b" };
-
-  char*           scratch_registers_indirect[] = { "(%rax)", "(%rdi)", "(%rsi)", "(%rdx)", "(%rcx)", "(%r8)", "(%r9)", "(%r10)", "(%r11)" };
-  unsigned        current_active_reg = 0;
-  const unsigned  max_scratch_reg = sizeof scratch_registers_q / sizeof scratch_registers_q[0];
-
-  char*           arg_registers_q[] = { "%rdi", "%rsi", "%rdx", "%rcx", "%r8",  "%r9",  "%r10",  "%r11" };
-  unsigned        current_arg_reg = 0;
-  const unsigned  max_arg_reg = sizeof arg_registers_q / sizeof arg_registers_q[0];
+  unsigned current_active_reg = 0;
+  unsigned current_arg_reg = 0;
+  unsigned latest_compare_op = 0;
 
   printf2("# GenExpr\n");
 
@@ -116,68 +282,7 @@ void GenExpr(void)
       break;
 
     case tokUnaryStar:
-      {
-        char    size_suff = '?';
-        char**  scratch_registers = NULL;
-
-        if (current_active_reg == 0)
-        {
-          errorInternal(640004);
-        }
-
-        switch (v)
-        {
-          case -1:
-          case 1:
-            size_suff = 'b';
-            scratch_registers = scratch_registers_b;
-
-            break;
-
-          case -2:
-          case 2:
-            size_suff = 'w';
-            scratch_registers = scratch_registers_w;
-
-            break;
-
-          case -4:
-          case 4:
-            size_suff = 'l';
-            scratch_registers = scratch_registers_l;
-
-            break;
-
-          case -8:
-          case 8:
-            size_suff = 'q';
-            scratch_registers = scratch_registers_q;
-
-            break;
-
-          default:
-            errorInternal(640003);
-            break;
-        }
-
-        printf2("\t\tmov%c\t\t%s, %s", size_suff, scratch_registers_indirect[current_active_reg - 1], scratch_registers[current_active_reg - 1]);
-
-        if (abs(v) < 8) 
-        {
-          /* For 32 bit registers, zero-extend is performed by the hardware ? */
-
-          if (v < 0) 
-          {
-            /* Sign-extend */
-            printf2("\n\t\tmovsx%c\t\t%s, %s", size_suff, scratch_registers[current_active_reg - 1], scratch_registers_q[current_active_reg - 1]);
-          }
-          else
-          {
-            /* Zero-extend */
-            printf2("\n\t\tmovzx%c\t\t%s, %s", size_suff, scratch_registers[current_active_reg - 1], scratch_registers_q[current_active_reg - 1]);
-          }
-        }
-      }
+      x64GenDeref(current_active_reg, v);
       break;
 
     case tokNumInt:
@@ -194,54 +299,9 @@ void GenExpr(void)
       break;
 
     case '=':
-      {
-        char    size_suff = '?';
-        char**  scratch_registers = NULL;
+      x64GenAssign(current_active_reg, v);
 
-        if (current_active_reg < 2)
-        {
-          errorInternal(640002);
-        }
-
-        switch (v)
-        {
-          case -1:
-          case 1:
-            size_suff = 'b';
-            scratch_registers = scratch_registers_b;
-
-            break;
-
-          case -2:
-          case 2:
-            size_suff = 'w';
-            scratch_registers = scratch_registers_w;
-
-            break;
-
-          case -4:
-          case 4:
-            size_suff = 'l';
-            scratch_registers = scratch_registers_l;
-
-            break;
-
-          case -8:
-          case 8:
-            size_suff = 'q';
-            scratch_registers = scratch_registers_q;
-
-            break;
-
-          default:
-            errorInternal(640003);
-            break;
-        }
-
-        printf2("\t\tmov%c\t\t%s, %s", size_suff, scratch_registers[current_active_reg -1], scratch_registers_indirect[current_active_reg - 2]);
-
-        current_active_reg -= 1;
-      }
+      current_active_reg -= 1;
       break;
 
     case '(':
@@ -300,38 +360,51 @@ void GenExpr(void)
 
       /* Preserve its result */
       current_active_reg += 1;
-
       break;
 
     case '+':
-      printf2("\t\taddq\t\t%s, %s", scratch_registers_q[current_active_reg - 1], scratch_registers_q[current_active_reg - 2]);
+    case '-':
+    case '~':
+    case '*':
+    case '/':
+    case '%':
+    case '&':
+    case '|':
+    case '^':
+    case '!':
+      x64GenALU(current_active_reg, tok);
 
       current_active_reg -= 1;
-
       break;
 
     case tokEQ:
     case tokNEQ:
+    case tokLEQ:
+    case tokGEQ:
+    case tokULess:
+    case tokUGreater:
+    case tokULEQ:
+    case tokUGEQ:
+      latest_compare_op = tok;
       printf2("\t\tcmpq\t\t%s, %s", scratch_registers_q[current_active_reg - 1], scratch_registers_q[current_active_reg - 2]);
 
       current_active_reg -= 1;
       break;
 
     case tokIfNot:
-      printf2("\t\tjne\t\t\t.L%d\t", v);
+      x64GenIfNot(latest_compare_op, v);
 
       current_active_reg -= 1;
       break;
 
     case tokIf:
-      printf2("\t\tje\t\t\t.L%d\t", v);
+      x64GenIf(latest_compare_op, v);
 
       current_active_reg -= 1;
       break;
 
     default: 
-      printf2("\t\t/*** NOT YET IMPLEMENTED ***/");
-      /* errorInternal(102); */
+      errorInternal(102);
       break;
     }
 
