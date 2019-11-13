@@ -264,7 +264,7 @@ void GenExpr(void)
         errorInternal(640008);
       }
 
-      if (!isdigit(IdentTable[v]))
+      if ((i < sp - 1) && (stack[i+1][0] == ')'))
       {
         for (int r = 0; r < current_arg_reg; ++r)
         {
@@ -275,7 +275,14 @@ void GenExpr(void)
       }
       else
       {
-        printf2("\t\tleaq\t\t.L%s(%%rip), %s", &IdentTable[v], scratch_registers_q[current_active_reg++]);
+        if (isdigit(IdentTable[v]))
+        {
+          printf2("\t\tleaq\t\t.L%s(%%rip), %s", &IdentTable[v], scratch_registers_q[current_active_reg++]);
+        }
+        else
+        {
+          printf2("\t\tleaq\t\t%s(%%rip), %s", &IdentTable[v], scratch_registers_q[current_active_reg++]);
+        }
       }
       break;
 
@@ -429,7 +436,7 @@ void GenIntData(int Size, int Val)
   else if (Size == 4)
     printf2("\t\t.word\t\t%d\n", Val);
   else if (Size == 8)
-    printf2("\t\t.xword\t\t%d\n", Val);
+    printf2("\t\t.quad\t\t%d\n", Val);
 }
 
 void GenIsrProlog(void)
@@ -473,7 +480,16 @@ void GenLabel(char* Label, int Static)
   {
     printf2("\t\t.global\t\t%s\n", Label);
   }
-  printf2("\t\t.type\t\t%s, %%function\n", Label);
+
+  if (CurFxnName)
+  {
+    printf2("\t\t.type\t\t%s, %%function\n", Label);
+  }
+  else
+  {
+    printf2("\t\t.type\t\t%s, %%object\n", Label);
+  }
+
   printf2("%s:\n", Label);
 }
 
