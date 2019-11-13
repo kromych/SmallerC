@@ -50,13 +50,36 @@ void GenAddrData(int Size, char* Label, int ofs)
 STATIC
 void GenDumpChar(int ch)
 {
-  printf2("# NYI: GenDumpChar\n");
+  if (ch < 0)
+  {
+    if (TokenStringLen)
+      printf2("\"\n");
+    return;
+  }
+
+  if (TokenStringLen == 0)
+  {
+    GenStartAsciiString();
+    printf2("\"");
+  }
+
+  if (ch >= 0x20 && ch <= 0x7E)
+  {
+    if (ch == '"' || ch == '\\')
+      printf2("\\");
+    printf2("%c", ch);
+  }
+  else
+  {
+    printf2("\\%03o", ch);
+  }
 }
 
 STATIC
 void GenExpr(void)
 {
-  /* These registers are used as a stack */
+  /* These registers are used as a stack when calculating expressions*/
+
   char*           scratch_registers_q[] = { "%rax", "%rdi", "%rsi", "%rdx", "%rcx", "%r8",  "%r9",  "%r10",  "%r11"  };
   char*           scratch_registers_l[] = { "%eax", "%edi", "%esi", "%edx", "%ecx", "%r8d", "%r9d", "%r10d", "%r11d" };
   char*           scratch_registers_w[] = {  "%ax",  "%di",  "%si",  "%dx",  "%cx", "%r8w", "%r9w", "%r10w", "%r11w" };
@@ -65,6 +88,10 @@ void GenExpr(void)
   char*           scratch_registers_indirect[] = { "(%rax)", "(%rdi)", "(%rsi)", "(%rdx)", "(%rcx)", "(%r8)", "(%r9)", "(%r10)", "(%r11)" };
   unsigned        current_active_reg = 0;
   const unsigned  max_scratch_reg = sizeof scratch_registers_q / sizeof scratch_registers_q[0];
+
+  char*           arg_registers_q[] = { "%rdi", "%rsi", "%rdx", "%rcx", "%r8",  "%r9",  "%r10",  "%r11" };
+  unsigned        current_arg_reg = 0;
+  const unsigned  max_arg_reg = sizeof arg_registers_q / sizeof arg_registers_q[0];
 
   printf2("# GenExpr\n");
 
@@ -81,7 +108,7 @@ void GenExpr(void)
     switch (tok)
     {
     case tokReturn:
-      printf2("\t\t/*** Returning result in rax ***/");
+      printf2("\t\t/*** Result in rax ***/");
       break;
 
     case tokLocalOfs:
@@ -133,7 +160,7 @@ void GenExpr(void)
             break;
         }
 
-        printf2("\t\tmov%c\t\t%s, %s\n", size_suff, scratch_registers_indirect[current_active_reg - 1], scratch_registers[current_active_reg - 1]);
+        printf2("\t\tmov%c\t\t%s, %s", size_suff, scratch_registers_indirect[current_active_reg - 1], scratch_registers[current_active_reg - 1]);
 
         if (abs(v) < 8) 
         {
@@ -142,12 +169,12 @@ void GenExpr(void)
           if (v < 0) 
           {
             /* Sign-extend */
-            printf2("\t\tmovsx%c\t\t%s, %s", size_suff, scratch_registers[current_active_reg - 1], scratch_registers_q[current_active_reg - 1]);
+            printf2("\n\t\tmovsx%c\t\t%s, %s", size_suff, scratch_registers[current_active_reg - 1], scratch_registers_q[current_active_reg - 1]);
           }
           else
           {
             /* Zero-extend */
-            printf2("\t\tmovzx%c\t\t%s, %s", size_suff, scratch_registers[current_active_reg - 1], scratch_registers_q[current_active_reg - 1]);
+            printf2("\n\t\tmovzx%c\t\t%s, %s", size_suff, scratch_registers[current_active_reg - 1], scratch_registers_q[current_active_reg - 1]);
           }
         }
       }
@@ -155,7 +182,15 @@ void GenExpr(void)
 
     case tokNumInt:
     case tokNumUint:
-      printf2("\t\tmovq\t\t$0x%lx, %s", (unsigned long)v, scratch_registers_q[current_active_reg++]);
+      if (v != 0)
+      {
+        printf2("\t\tmovq\t\t$0x%lx, %s", (unsigned long)v, scratch_registers_q[current_active_reg++]);
+      }
+      else
+      {
+        printf2("\t\txorq\t\t%s, %s", scratch_registers_q[current_active_reg], scratch_registers_q[current_active_reg]);
+        ++current_active_reg;
+      }
       break;
 
     case '=':
@@ -210,7 +245,17 @@ void GenExpr(void)
       break;
 
     case '(':
-      printf2("\t\t/*** Passing %d arguments to a function ***/", v);
+      if (v != 0)
+      {
+        printf2("\t\t/*** %d args ***/\n", v);
+        printf2("\t\tsubq\t\t$%d, %%rsp", 8*v);
+      }
+
+      current_arg_reg = 0;
+      break;
+
+    case ',':
+      printf2("\t\tmovq\t\t%%rax, %d(%rsp)", 8*current_arg_reg++);
       break;
 
     case tokIdent:
@@ -219,7 +264,19 @@ void GenExpr(void)
         errorInternal(640008);
       }
 
-      printf2("\t\tcall\t\t%s", &IdentTable[v]);
+      if (!isdigit(IdentTable[v]))
+      {
+        for (int r = 0; r < current_arg_reg; ++r)
+        {
+          printf2("\t\tmovq\t\t%d(%rsp), %s\n", r*8, arg_registers_q[r]);
+        }
+
+        printf2("\t\tcall\t\t%s", &IdentTable[v]);
+      }
+      else
+      {
+        printf2("\t\tleaq\t\t.L%s(%%rip), %s", &IdentTable[v], scratch_registers_q[current_active_reg++]);
+      }
       break;
 
     case ')':
@@ -228,7 +285,11 @@ void GenExpr(void)
         errorInternal(640006);
       }
 
-      printf2("\t\t/*** Returned from a function of %d arguments ***/", v);
+      if (v != 0)
+      {
+        printf2("\t\t/*** Returned ***/\n", v);
+        printf2("\t\taddq\t\t$%d, %%rsp", 8*v);
+      }
 
       /* Preserve its result */
       current_active_reg += 1;
@@ -250,13 +311,13 @@ void GenExpr(void)
       break;
 
     case tokIfNot:
-      printf2("\t\tjne\t\t__L%d", v);
+      printf2("\t\tjne\t\t\t.L%d\t", v);
 
       current_active_reg -= 1;
       break;
 
     case tokIf:
-      printf2("\t\tje\t\t__L%d", v);
+      printf2("\t\tje\t\t\t.L%d\t", v);
 
       current_active_reg -= 1;
       break;
@@ -285,9 +346,9 @@ void GenFxnEpilog(void)
 
     printf2("\t\taddq\t\t$0x%lx, %%rsp\t\t\t\t# Free the space used by the homed parameters and locals\n", CurFxnParamCntMin*8);
   }
-  printf2("\t\tpopq\t\t%%rbp\t\t\t\t# Restore rbp\n");
-  printf2("\t\tpopq\t\t%%rsp\t\t\t\t# Restore rsp\n");
-  printf2("\t\tret\t\t\t\t# Pop the return address from the stack, and return to the caller\n");
+  printf2("\t\tpopq\t\t%%rbp\t\t\t\t\t# Restore rbp\n");
+  printf2("\t\tpopq\t\t%%rsp\t\t\t\t\t# Restore rsp\n");
+  printf2("\t\tret\t\t\t\t\t\t\t\t\t# Pop the return address from the stack, and return to the caller\n");
   printf2("\t\t.cfi_endproc\n");
 }
 
@@ -297,8 +358,8 @@ void GenFxnProlog(void)
   char* arg_registers[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
 
   printf2("\t\t.cfi_startproc\n");
-  printf2("\t\tpushq\t\t%%rsp\t\t\t\t# Save rsp\n");
-  printf2("\t\tpushq\t\t%%rbp\t\t\t\t# Save rbp\n");
+  printf2("\t\tpushq\t\t%%rsp\t\t\t\t\t# Save rsp\n");
+  printf2("\t\tpushq\t\t%%rbp\t\t\t\t\t# Save rbp\n");
 
   if (CurFxnParamCntMin)
   {
@@ -313,7 +374,7 @@ void GenFxnProlog(void)
     
     for (int i = 0; i < CurFxnParamCntMin; ++i)
     {
-      printf2("\t\tmovq\t\t%%%s, 0x%lx(%%rsp)\t\t\t\t# Home parameter %i\n", arg_registers[i], i*8, i);
+      printf2("\t\tmovq\t\t%%%s, 0x%lx(%%rsp)\t\t\t# Home parameter %i\n", arg_registers[i], i*8, i);
     }
   }
 
@@ -336,9 +397,9 @@ void GenInit(void)
   // initialization of target-specific code generator
   SizeOfWord = 8;
   OutputFormat = FormatSegmented;
-  CodeHeaderFooter[0] = "\t\t.text";
+  CodeHeaderFooter[0] = "\t\t.text\n\t\t.code64";
   DataHeaderFooter[0] = "\t\t.data";
-  RoDataHeaderFooter[0] = "\t\t.rdata";
+  RoDataHeaderFooter[0] = "\t\t.section\t.rodata, \"a\", @progbits";
   BssHeaderFooter[0] = "\t\t.bss";
   UseLeadingUnderscores = 0;
   FileHeader = "";
@@ -402,7 +463,7 @@ void GenJumpIfZero(int label)
 STATIC
 void GenJumpUncond(int label)
 {
-  printf2("\t\tjmp\t\t__L%d\n", label);
+  printf2("\t\tjmp\t\t\t.L%d\n", label);
 }
 
 STATIC
@@ -425,13 +486,13 @@ int GenMaxLocalsSize(void)
 STATIC
 void GenNumLabel(int Label)
 {
-  printf2("__L%d:\n", Label);
+  printf2(".L%d:\n", Label);
 }
 
 STATIC
 void GenStartAsciiString(void)
 {
-  printf2("# NYI: GenStartAsciiString\n");
+  printf2("\t\t.ascii\t\t");
 }
 
 STATIC
@@ -439,7 +500,7 @@ void GenPrintLabel(char* Label)
 {
   printf2("# NYI: GenPrintLabel\n");
   if (isdigit(*Label))
-    printf2("__L%s", Label);
+    printf2(".L%s", Label);
   else
     printf2("%s", Label);
 }
@@ -459,11 +520,11 @@ void GenStartCommentLine(void)
 STATIC
 void GenWordAlignment(int bss)
 {
-  printf2("\t\t.align\t\t8 ; GenWordAlignment\n");
+  printf2("\t\t.align\t\t8\n");
 }
 
 STATIC
 void GenZeroData(unsigned Size, int bss)
 {
-  printf2("# NYI: GenZeroData\n");
+  printf2("\t\t.skip\t\t%d\n", Size);
 }

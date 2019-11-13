@@ -1,4 +1,5 @@
 extern void abort();
+extern void puts(const char*);
 
 void test0()
 {
@@ -32,6 +33,7 @@ void main(int argc, char** argv)
     if (test1() == 1)
     {
         /* Ok */
+        puts("test 1 passed");
     }
     else
     {
