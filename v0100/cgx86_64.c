@@ -95,6 +95,8 @@ void x64GenCondJump(unsigned op, unsigned label_num, unsigned not)
 
   switch (op)
   {
+    case '>':         cond_code = not ? "le" :  "g"; break;
+    case '<':         cond_code = not ? "ge" :  "l"; break;
     case tokEQ:       cond_code = not ? "ne" :  "e"; break;
     case tokNEQ:      cond_code = not ? "e"  : "ne"; break;
     case tokLEQ:      cond_code = not ? "g"  : "le"; break;
@@ -305,11 +307,17 @@ void GenExpr(void)
       break;
 
     case '(':
+      if (CurFxnMinLocalOfs != 0)
+      {
+        /* Protect locals */
+        printf2("\t\tsubq\t\t$%ld, %%rsp # Protect locals\n", abs(CurFxnMinLocalOfs)*8);
+      }
+
       current_arg_reg = 0;
       break;
 
     case ',':
-      printf2("\t\tmovq\t\t%%rax, -%d(%rsp)", 8*current_arg_reg + abs(CurFxnMinLocalOfs)*8);
+      printf2("\t\tmovq\t\t%s, -%d(%rsp)", scratch_registers_q[--current_active_reg], 8*current_arg_reg);
 
       ++current_arg_reg;
       break;
@@ -324,21 +332,10 @@ void GenExpr(void)
       {
         for (int r = 0; r < current_arg_reg; ++r)
         {
-          printf2("\t\tmovq\t\t-%d(%rsp), %s\n", 8*r + abs(CurFxnMinLocalOfs)*8, arg_registers_q[r]);
-        }
-
-        if (CurFxnMinLocalOfs != 0)
-        {
-          /* Protect locals */
-          printf2("\t\tsubq\t\t$%ld, %%rsp # Protect locals\n", abs(CurFxnMinLocalOfs)*8);
+          printf2("\t\tmovq\t\t-%d(%rsp), %s\n", 8*r, arg_registers_q[r]);
         }
 
         printf2("\t\tcall\t\t%s", &IdentTable[v]);
-
-        if (CurFxnMinLocalOfs != 0)
-        {
-          printf2("\n\t\taddq\t\t$%ld, %%rsp", abs(CurFxnMinLocalOfs)*8);
-        }
       }
       else
       {
@@ -360,6 +357,11 @@ void GenExpr(void)
       }
 
       printf2("\t\t/*** Returned ***/\n", v);
+
+      if (CurFxnMinLocalOfs != 0)
+      {
+        printf2("\n\t\taddq\t\t$%ld, %%rsp", abs(CurFxnMinLocalOfs)*8);
+      }
 
       /* Preserve its result */
       current_active_reg += 1;
@@ -388,6 +390,8 @@ void GenExpr(void)
     case tokUGreater:
     case tokULEQ:
     case tokUGEQ:
+    case '>':
+    case '<':
       latest_compare_op = tok;
       printf2("\t\tcmpq\t\t%s, %s", scratch_registers_q[current_active_reg - 1], scratch_registers_q[current_active_reg - 2]);
 
@@ -407,11 +411,12 @@ void GenExpr(void)
       break;
 
     default: 
-      errorInternal(102);
+      printf2("\t\t\t\t/* NOT YET IMPLEMENTED */\n"); 
+      //errorInternal(102);
       break;
     }
 
-    printf2("\t\t\t\t# TOKEN: %s, VALUE: %i\n", GetTokenName(tok), v); 
+    printf2("\t\t\t\t# TOKEN: %s, VALUE: %i, next active register: %s\n", GetTokenName(tok), v, scratch_registers_q[current_active_reg]); 
   }
 }
 
@@ -429,6 +434,9 @@ void GenFxnEpilog(void)
 
     printf2("\t\taddq\t\t$0x%lx, %%rsp\t\t\t\t# Free the space used by the homed parameters and locals\n", CurFxnParamCntMin*8);
   }
+
+  printf2("\t\taddq\t\t$16, %%rsp\t\t\t\t# TODO: Stack cookie\n");
+
   printf2("\t\tpopq\t\t%%rbp\t\t\t\t\t# Restore rbp\n");
   printf2("\t\tpopq\t\t%%rsp\t\t\t\t\t# Restore rsp\n");
   printf2("\t\tret\t\t\t\t\t\t\t\t\t# Pop the return address from the stack, and return to the caller\n");
@@ -460,6 +468,10 @@ void GenFxnProlog(void)
       printf2("\t\tmovq\t\t%%%s, 0x%lx(%%rsp)\t\t\t# Home parameter %i\n", arg_registers[i], i*8, i);
     }
   }
+
+  /* Stack cookie */
+
+  printf2("\t\tsubq\t\t$16, %%rsp\t\t\t\t# TODO: Stack cookie\n");
 
   printf2("\t\tmovq\t\t%%rsp, %%rbp\t\t\t\t# Set the base pointer after the last homed parameter\n");
 

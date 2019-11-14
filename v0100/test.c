@@ -83,6 +83,22 @@ char test4()
     }
 }
 
+int test5(int a, int b, int c)
+{
+    return a + b + c;
+}
+
+/*
+int test6(int a)
+{
+    if (a == 0)
+    {
+        return a;
+    }
+
+    return a + test5(a-1);
+}
+*/
 void main(int argc, char** argv)
 {
     int  a  = 50;
@@ -168,4 +184,29 @@ void main(int argc, char** argv)
 
         abort();
     }
+
+    puts("checking sum of the locals.."); 
+    if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
+        puts("ok"); 
+    else 
+        abort(); 
+
+    if (test5(3, 1,-5) + 1== 0)
+        puts("test 5 passed");
+    else
+        abort();
+
+/*
+    if (1 + test5(3, 1,-5)== 0)
+        puts("test 5' passed");
+    else
+        abort();
+*/
+
+/*
+    if (test6(1) == 1)
+        puts("test 6 (recursion) passed");
+    else
+        abort();
+*/
 }
