@@ -305,17 +305,13 @@ void GenExpr(void)
       break;
 
     case '(':
-      if (v != 0)
-      {
-        printf2("\t\t/*** %d args ***/\n", v);
-        printf2("\t\tsubq\t\t$%d, %%rsp", 8*v);
-      }
-
       current_arg_reg = 0;
       break;
 
     case ',':
-      printf2("\t\tmovq\t\t%%rax, %d(%rsp)", 8*current_arg_reg++);
+      printf2("\t\tmovq\t\t%%rax, -%d(%rsp)", 8*current_arg_reg + abs(CurFxnMinLocalOfs)*8);
+
+      ++current_arg_reg;
       break;
 
     case tokIdent:
@@ -328,10 +324,21 @@ void GenExpr(void)
       {
         for (int r = 0; r < current_arg_reg; ++r)
         {
-          printf2("\t\tmovq\t\t%d(%rsp), %s\n", r*8, arg_registers_q[r]);
+          printf2("\t\tmovq\t\t-%d(%rsp), %s\n", 8*r + abs(CurFxnMinLocalOfs)*8, arg_registers_q[r]);
+        }
+
+        if (CurFxnMinLocalOfs != 0)
+        {
+          /* Protect locals */
+          printf2("\t\tsubq\t\t$%ld, %%rsp # Protect locals\n", abs(CurFxnMinLocalOfs)*8);
         }
 
         printf2("\t\tcall\t\t%s", &IdentTable[v]);
+
+        if (CurFxnMinLocalOfs != 0)
+        {
+          printf2("\n\t\taddq\t\t$%ld, %%rsp", abs(CurFxnMinLocalOfs)*8);
+        }
       }
       else
       {
@@ -352,11 +359,7 @@ void GenExpr(void)
         errorInternal(640006);
       }
 
-      if (v != 0)
-      {
-        printf2("\t\t/*** Returned ***/\n", v);
-        printf2("\t\taddq\t\t$%d, %%rsp", 8*v);
-      }
+      printf2("\t\t/*** Returned ***/\n", v);
 
       /* Preserve its result */
       current_active_reg += 1;

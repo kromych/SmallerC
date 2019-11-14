@@ -85,25 +85,87 @@ char test4()
 
 void main(int argc, char** argv)
 {
+    int  a  = 50;
+    char c1 = 21;
+    int  b  = 70;
+    char c2 = 31;
+
+    puts("checking sum of the locals.."); 
+    if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
+        puts("ok"); 
+    else 
+        abort(); 
+
+    puts("Running test 0");
+
     test0();
+
+    puts("checking sum of the locals.."); 
+    if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
+        puts("ok"); 
+    else 
+        abort(); 
 
     if (test1() == 1)
         puts("test 1 passed");
     else
         abort();
 
+    puts("checking sum of the locals.."); 
+    if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
+        puts("ok"); 
+    else 
+        abort(); 
+
     if (test2() == 2)
         puts("test 2 passed");
     else
         abort();
+
+    puts("checking sum of the locals.."); 
+    if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
+        puts("ok"); 
+    else 
+        abort(); 
 
     if (test3() == 4)
         puts("test 3 passed");
     else
         abort();
 
+    puts("checking sum of the locals.."); 
+    if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
+        puts("ok"); 
+    else 
+        abort(); 
+
     if (test4() == 6)
         puts("test 4 passed");
     else
         abort();
+
+    int  x  = -150;
+    char y1 = 121;
+    int  z  = -170;
+    char w2 = 110;
+    char w3 = -100;
+
+    puts("checking sum of the newly declared locals.."); 
+    if (x + 121 + z + 110 + w3 == -150 + y1 - 170 + w2 - 100)
+        puts("ok"); 
+    else 
+    {
+        if (x  != -150)
+            puts("x changed!");
+        if (y1 != 121)
+            puts("y1 changed!");
+        if (z  != -170)
+            puts("z changed!");
+        if (w2 != 0)
+            puts("w2 changed!");
+        if (w3 != -100)
+            puts("w3 changed!");
+
+        abort();
+    }
 }
