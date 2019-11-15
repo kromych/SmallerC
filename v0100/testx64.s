@@ -490,6 +490,71 @@ test5:
 		ret									# Pop the return address from the stack, and return to the caller
 		.cfi_endproc
 
+# glb test6 : (
+# prm     a : int
+#     ) int
+		.text
+		.code64
+		.global		test6
+		.type		test6, %function
+test6:
+		.cfi_startproc
+		pushq		%rsp					# Save rsp
+		pushq		%rbp					# Save rbp
+		subq		$0x8, %rsp				# Space for homing the parameters on the stack
+		movq		%rdi, 0x0(%rsp)			# Home parameter 0
+		subq		$16, %rsp				# TODO: Stack cookie
+		movq		%rsp, %rbp				# Set the base pointer after the last homed parameter
+# loc     a : (@16) : int
+# if
+# RPN'ized expression: "a 0 > "
+# Expanded expression: "(@16) *(8) 0 > "
+# GenExpr
+		leaq		16(%rbp), %rax				# TOKEN: <LocalOfs>, VALUE: 16, next active register: %rdi
+		movq		(%rax), %rax				# TOKEN: *u, VALUE: 8, next active register: %rdi
+		xorq		%rdi, %rdi				# TOKEN: <NumInt>, VALUE: 0, next active register: %rsi
+		cmpq		%rdi, %rax				# TOKEN: >, VALUE: 0, next active register: %rdi
+		jle			.L23					# TOKEN: <IfNot>, VALUE: 23, next active register: %rax
+# {
+# return
+# RPN'ized expression: "a ( a 1 - test6 ) + "
+# Expanded expression: "(@16) *(8)  (@16) *(8) 1 -  test6 ()8 + "
+# GenExpr
+		leaq		16(%rbp), %rax				# TOKEN: <LocalOfs>, VALUE: 16, next active register: %rdi
+		movq		(%rax), %rax				# TOKEN: *u, VALUE: 8, next active register: %rdi
+		pushq		%rax # Save register in use
+				# TOKEN: (, VALUE: 8, next active register: %rax
+		leaq		16(%rbp), %rax				# TOKEN: <LocalOfs>, VALUE: 16, next active register: %rdi
+		movq		(%rax), %rax				# TOKEN: *u, VALUE: 8, next active register: %rdi
+		movq		$0x1, %rdi				# TOKEN: <NumInt>, VALUE: 1, next active register: %rsi
+		subq		%rdi, %rax				# TOKEN: -, VALUE: 0, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
+		call		test6				# TOKEN: <Ident>, VALUE: 272, next active register: %rax
+		/*** Returned ***/
+
+		popq		%rdi # Restore register in use
+				# TOKEN: ), VALUE: 8, next active register: %rsi
+		addq		%rdi, %rax				# TOKEN: +, VALUE: 0, next active register: %rdi
+		/*** Result in rax ***/				# TOKEN: return, VALUE: 0, next active register: %rdi
+		jmp			.L21
+# }
+.L23:
+# return
+# RPN'ized expression: "0 "
+# Expanded expression: "0 "
+# Expression value: 0
+# GenExpr
+		xorq		%rax, %rax				# TOKEN: <NumInt>, VALUE: 0, next active register: %rdi
+		/*** Result in rax ***/				# TOKEN: return, VALUE: 0, next active register: %rdi
+.L21:
+		addq		$0x8, %rsp				# Free the space used by the homed parameters and locals
+		addq		$16, %rsp				# TODO: Stack cookie
+		popq		%rbp					# Restore rbp
+		popq		%rsp					# Restore rsp
+		ret									# Pop the return address from the stack, and return to the caller
+		.cfi_endproc
+
 # glb main : (
 # prm     argc : int
 # prm     argv : * * char
@@ -539,20 +604,20 @@ main:
 		movq		%rdi, (%rax)				# TOKEN: =, VALUE: 8, next active register: %rdi
 
 		.section	.rodata, "a", @progbits
-.L23:
+.L27:
 		.ascii		"checking sum of the locals.."
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L23 puts ) "
-# Expanded expression: " L23  puts ()8 "
+# RPN'ized expression: "( L27 puts ) "
+# Expanded expression: " L27  puts ()8 "
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L23(%rip), %rax				# TOKEN: <Ident>, VALUE: 302, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L27(%rip), %rax				# TOKEN: <Ident>, VALUE: 309, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
@@ -582,29 +647,29 @@ main:
 		movsxb		%sil, %rsi				# TOKEN: *u, VALUE: -1, next active register: %rdx
 		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
-		jne			.L24					# TOKEN: <IfNot>, VALUE: 24, next active register: %rax
+		jne			.L28					# TOKEN: <IfNot>, VALUE: 28, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L26:
+.L30:
 		.ascii		"ok"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L26 puts ) "
-# Expanded expression: " L26  puts ()8 "
+# RPN'ized expression: "( L30 puts ) "
+# Expanded expression: " L30  puts ()8 "
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L26(%rip), %rax				# TOKEN: <Ident>, VALUE: 306, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L30(%rip), %rax				# TOKEN: <Ident>, VALUE: 313, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-		jmp			.L25
-.L24:
+		jmp			.L29
+.L28:
 # else
 # RPN'ized expression: "( abort ) "
 # Expanded expression: " abort ()0 "
@@ -615,23 +680,23 @@ main:
 		/*** Returned ***/
 
 		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
-.L25:
+.L29:
 
 		.section	.rodata, "a", @progbits
-.L27:
+.L31:
 		.ascii		"Running test 0"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L27 puts ) "
-# Expanded expression: " L27  puts ()8 "
+# RPN'ized expression: "( L31 puts ) "
+# Expanded expression: " L31  puts ()8 "
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L27(%rip), %rax				# TOKEN: <Ident>, VALUE: 310, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L31(%rip), %rax				# TOKEN: <Ident>, VALUE: 317, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
@@ -647,20 +712,20 @@ main:
 		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
 
 		.section	.rodata, "a", @progbits
-.L28:
+.L32:
 		.ascii		"checking sum of the locals.."
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L28 puts ) "
-# Expanded expression: " L28  puts ()8 "
+# RPN'ized expression: "( L32 puts ) "
+# Expanded expression: " L32  puts ()8 "
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L28(%rip), %rax				# TOKEN: <Ident>, VALUE: 314, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L32(%rip), %rax				# TOKEN: <Ident>, VALUE: 321, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
@@ -690,29 +755,29 @@ main:
 		movsxb		%sil, %rsi				# TOKEN: *u, VALUE: -1, next active register: %rdx
 		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
-		jne			.L29					# TOKEN: <IfNot>, VALUE: 29, next active register: %rax
+		jne			.L33					# TOKEN: <IfNot>, VALUE: 33, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L31:
+.L35:
 		.ascii		"ok"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L31 puts ) "
-# Expanded expression: " L31  puts ()8 "
+# RPN'ized expression: "( L35 puts ) "
+# Expanded expression: " L35  puts ()8 "
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L31(%rip), %rax				# TOKEN: <Ident>, VALUE: 318, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L35(%rip), %rax				# TOKEN: <Ident>, VALUE: 325, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-		jmp			.L30
-.L29:
+		jmp			.L34
+.L33:
 # else
 # RPN'ized expression: "( abort ) "
 # Expanded expression: " abort ()0 "
@@ -723,7 +788,7 @@ main:
 		/*** Returned ***/
 
 		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
-.L30:
+.L34:
 # if
 # RPN'ized expression: "( test1 ) 1 == "
 # Expanded expression: " test1 ()0 1 == "
@@ -736,90 +801,11 @@ main:
 		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
 		movq		$0x1, %rdi				# TOKEN: <NumInt>, VALUE: 1, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
-		jne			.L32					# TOKEN: <IfNot>, VALUE: 32, next active register: %rax
-
-		.section	.rodata, "a", @progbits
-.L34:
-		.ascii		"test 1 passed"
-		.skip		1
-
-		.text
-		.code64
-# RPN'ized expression: "( L34 puts ) "
-# Expanded expression: " L34  puts ()8 "
-# GenExpr
-		subq		$256, %rsp # Protect locals
-				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L34(%rip), %rax				# TOKEN: <Ident>, VALUE: 322, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
-		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
-		/*** Returned ***/
-
-		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-		jmp			.L33
-.L32:
-# else
-# RPN'ized expression: "( abort ) "
-# Expanded expression: " abort ()0 "
-# GenExpr
-		subq		$256, %rsp # Protect locals
-				# TOKEN: (, VALUE: 0, next active register: %rax
-		call		abort				# TOKEN: <Ident>, VALUE: 123, next active register: %rax
-		/*** Returned ***/
-
-		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
-.L33:
-
-		.section	.rodata, "a", @progbits
-.L35:
-		.ascii		"checking sum of the locals.."
-		.skip		1
-
-		.text
-		.code64
-# RPN'ized expression: "( L35 puts ) "
-# Expanded expression: " L35  puts ()8 "
-# GenExpr
-		subq		$256, %rsp # Protect locals
-				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L35(%rip), %rax				# TOKEN: <Ident>, VALUE: 326, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
-		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
-		/*** Returned ***/
-
-		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-# if
-# RPN'ized expression: "a 21 + b + 31 + 50 c1 + 70 + c2 + == "
-# Expanded expression: "(@-8) *(8) 21 + (@-24) *(8) + 31 + 50 (@-16) *(-1) + 70 + (@-32) *(-1) + == "
-# GenExpr
-		leaq		-8(%rbp), %rax				# TOKEN: <LocalOfs>, VALUE: -8, next active register: %rdi
-		movq		(%rax), %rax				# TOKEN: *u, VALUE: 8, next active register: %rdi
-		movq		$0x15, %rdi				# TOKEN: <NumInt>, VALUE: 21, next active register: %rsi
-		addq		%rdi, %rax				# TOKEN: +, VALUE: 0, next active register: %rdi
-		leaq		-24(%rbp), %rdi				# TOKEN: <LocalOfs>, VALUE: -24, next active register: %rsi
-		movq		(%rdi), %rdi				# TOKEN: *u, VALUE: 8, next active register: %rsi
-		addq		%rdi, %rax				# TOKEN: +, VALUE: 0, next active register: %rdi
-		movq		$0x1f, %rdi				# TOKEN: <NumInt>, VALUE: 31, next active register: %rsi
-		addq		%rdi, %rax				# TOKEN: +, VALUE: 0, next active register: %rdi
-		movq		$0x32, %rdi				# TOKEN: <NumInt>, VALUE: 50, next active register: %rsi
-		leaq		-16(%rbp), %rsi				# TOKEN: <LocalOfs>, VALUE: -16, next active register: %rdx
-		movb		(%rsi), %sil
-		movsxb		%sil, %rsi				# TOKEN: *u, VALUE: -1, next active register: %rdx
-		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
-		movq		$0x46, %rsi				# TOKEN: <NumInt>, VALUE: 70, next active register: %rdx
-		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
-		leaq		-32(%rbp), %rsi				# TOKEN: <LocalOfs>, VALUE: -32, next active register: %rdx
-		movb		(%rsi), %sil
-		movsxb		%sil, %rsi				# TOKEN: *u, VALUE: -1, next active register: %rdx
-		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
-		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
 		jne			.L36					# TOKEN: <IfNot>, VALUE: 36, next active register: %rax
 
 		.section	.rodata, "a", @progbits
 .L38:
-		.ascii		"ok"
+		.ascii		"test 1 passed"
 		.skip		1
 
 		.text
@@ -829,9 +815,9 @@ main:
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L38(%rip), %rax				# TOKEN: <Ident>, VALUE: 330, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L38(%rip), %rax				# TOKEN: <Ident>, VALUE: 329, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
@@ -849,68 +835,22 @@ main:
 
 		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
 .L37:
-# if
-# RPN'ized expression: "( test2 ) 2 == "
-# Expanded expression: " test2 ()0 2 == "
-# GenExpr
-		subq		$256, %rsp # Protect locals
-				# TOKEN: (, VALUE: 0, next active register: %rax
-		call		test2				# TOKEN: <Ident>, VALUE: 163, next active register: %rax
-		/*** Returned ***/
-
-		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
-		movq		$0x2, %rdi				# TOKEN: <NumInt>, VALUE: 2, next active register: %rsi
-		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
-		jne			.L39					# TOKEN: <IfNot>, VALUE: 39, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L41:
-		.ascii		"test 2 passed"
-		.skip		1
-
-		.text
-		.code64
-# RPN'ized expression: "( L41 puts ) "
-# Expanded expression: " L41  puts ()8 "
-# GenExpr
-		subq		$256, %rsp # Protect locals
-				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L41(%rip), %rax				# TOKEN: <Ident>, VALUE: 334, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
-		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
-		/*** Returned ***/
-
-		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-		jmp			.L40
 .L39:
-# else
-# RPN'ized expression: "( abort ) "
-# Expanded expression: " abort ()0 "
-# GenExpr
-		subq		$256, %rsp # Protect locals
-				# TOKEN: (, VALUE: 0, next active register: %rax
-		call		abort				# TOKEN: <Ident>, VALUE: 123, next active register: %rax
-		/*** Returned ***/
-
-		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
-.L40:
-
-		.section	.rodata, "a", @progbits
-.L42:
 		.ascii		"checking sum of the locals.."
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L42 puts ) "
-# Expanded expression: " L42  puts ()8 "
+# RPN'ized expression: "( L39 puts ) "
+# Expanded expression: " L39  puts ()8 "
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L42(%rip), %rax				# TOKEN: <Ident>, VALUE: 338, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L39(%rip), %rax				# TOKEN: <Ident>, VALUE: 333, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
@@ -940,11 +880,57 @@ main:
 		movsxb		%sil, %rsi				# TOKEN: *u, VALUE: -1, next active register: %rdx
 		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
+		jne			.L40					# TOKEN: <IfNot>, VALUE: 40, next active register: %rax
+
+		.section	.rodata, "a", @progbits
+.L42:
+		.ascii		"ok"
+		.skip		1
+
+		.text
+		.code64
+# RPN'ized expression: "( L42 puts ) "
+# Expanded expression: " L42  puts ()8 "
+# GenExpr
+		subq		$256, %rsp # Protect locals
+				# TOKEN: (, VALUE: 8, next active register: %rax
+		leaq		.L42(%rip), %rax				# TOKEN: <Ident>, VALUE: 337, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
+		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
+		/*** Returned ***/
+
+		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
+		jmp			.L41
+.L40:
+# else
+# RPN'ized expression: "( abort ) "
+# Expanded expression: " abort ()0 "
+# GenExpr
+		subq		$256, %rsp # Protect locals
+				# TOKEN: (, VALUE: 0, next active register: %rax
+		call		abort				# TOKEN: <Ident>, VALUE: 123, next active register: %rax
+		/*** Returned ***/
+
+		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
+.L41:
+# if
+# RPN'ized expression: "( test2 ) 2 == "
+# Expanded expression: " test2 ()0 2 == "
+# GenExpr
+		subq		$256, %rsp # Protect locals
+				# TOKEN: (, VALUE: 0, next active register: %rax
+		call		test2				# TOKEN: <Ident>, VALUE: 163, next active register: %rax
+		/*** Returned ***/
+
+		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
+		movq		$0x2, %rdi				# TOKEN: <NumInt>, VALUE: 2, next active register: %rsi
+		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
 		jne			.L43					# TOKEN: <IfNot>, VALUE: 43, next active register: %rax
 
 		.section	.rodata, "a", @progbits
 .L45:
-		.ascii		"ok"
+		.ascii		"test 2 passed"
 		.skip		1
 
 		.text
@@ -954,9 +940,9 @@ main:
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L45(%rip), %rax				# TOKEN: <Ident>, VALUE: 342, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L45(%rip), %rax				# TOKEN: <Ident>, VALUE: 341, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
@@ -974,68 +960,22 @@ main:
 
 		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
 .L44:
-# if
-# RPN'ized expression: "( test3 ) 4 == "
-# Expanded expression: " test3 ()0 4 == "
-# GenExpr
-		subq		$256, %rsp # Protect locals
-				# TOKEN: (, VALUE: 0, next active register: %rax
-		call		test3				# TOKEN: <Ident>, VALUE: 206, next active register: %rax
-		/*** Returned ***/
-
-		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
-		movq		$0x4, %rdi				# TOKEN: <NumInt>, VALUE: 4, next active register: %rsi
-		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
-		jne			.L46					# TOKEN: <IfNot>, VALUE: 46, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L48:
-		.ascii		"test 3 passed"
-		.skip		1
-
-		.text
-		.code64
-# RPN'ized expression: "( L48 puts ) "
-# Expanded expression: " L48  puts ()8 "
-# GenExpr
-		subq		$256, %rsp # Protect locals
-				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L48(%rip), %rax				# TOKEN: <Ident>, VALUE: 346, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
-		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
-		/*** Returned ***/
-
-		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-		jmp			.L47
 .L46:
-# else
-# RPN'ized expression: "( abort ) "
-# Expanded expression: " abort ()0 "
-# GenExpr
-		subq		$256, %rsp # Protect locals
-				# TOKEN: (, VALUE: 0, next active register: %rax
-		call		abort				# TOKEN: <Ident>, VALUE: 123, next active register: %rax
-		/*** Returned ***/
-
-		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
-.L47:
-
-		.section	.rodata, "a", @progbits
-.L49:
 		.ascii		"checking sum of the locals.."
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L49 puts ) "
-# Expanded expression: " L49  puts ()8 "
+# RPN'ized expression: "( L46 puts ) "
+# Expanded expression: " L46  puts ()8 "
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L49(%rip), %rax				# TOKEN: <Ident>, VALUE: 350, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L46(%rip), %rax				# TOKEN: <Ident>, VALUE: 345, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
@@ -1065,11 +1005,57 @@ main:
 		movsxb		%sil, %rsi				# TOKEN: *u, VALUE: -1, next active register: %rdx
 		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
+		jne			.L47					# TOKEN: <IfNot>, VALUE: 47, next active register: %rax
+
+		.section	.rodata, "a", @progbits
+.L49:
+		.ascii		"ok"
+		.skip		1
+
+		.text
+		.code64
+# RPN'ized expression: "( L49 puts ) "
+# Expanded expression: " L49  puts ()8 "
+# GenExpr
+		subq		$256, %rsp # Protect locals
+				# TOKEN: (, VALUE: 8, next active register: %rax
+		leaq		.L49(%rip), %rax				# TOKEN: <Ident>, VALUE: 349, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
+		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
+		/*** Returned ***/
+
+		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
+		jmp			.L48
+.L47:
+# else
+# RPN'ized expression: "( abort ) "
+# Expanded expression: " abort ()0 "
+# GenExpr
+		subq		$256, %rsp # Protect locals
+				# TOKEN: (, VALUE: 0, next active register: %rax
+		call		abort				# TOKEN: <Ident>, VALUE: 123, next active register: %rax
+		/*** Returned ***/
+
+		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
+.L48:
+# if
+# RPN'ized expression: "( test3 ) 4 == "
+# Expanded expression: " test3 ()0 4 == "
+# GenExpr
+		subq		$256, %rsp # Protect locals
+				# TOKEN: (, VALUE: 0, next active register: %rax
+		call		test3				# TOKEN: <Ident>, VALUE: 206, next active register: %rax
+		/*** Returned ***/
+
+		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
+		movq		$0x4, %rdi				# TOKEN: <NumInt>, VALUE: 4, next active register: %rsi
+		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
 		jne			.L50					# TOKEN: <IfNot>, VALUE: 50, next active register: %rax
 
 		.section	.rodata, "a", @progbits
 .L52:
-		.ascii		"ok"
+		.ascii		"test 3 passed"
 		.skip		1
 
 		.text
@@ -1079,9 +1065,9 @@ main:
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L52(%rip), %rax				# TOKEN: <Ident>, VALUE: 354, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L52(%rip), %rax				# TOKEN: <Ident>, VALUE: 353, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
@@ -1099,6 +1085,85 @@ main:
 
 		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
 .L51:
+
+		.section	.rodata, "a", @progbits
+.L53:
+		.ascii		"checking sum of the locals.."
+		.skip		1
+
+		.text
+		.code64
+# RPN'ized expression: "( L53 puts ) "
+# Expanded expression: " L53  puts ()8 "
+# GenExpr
+		subq		$256, %rsp # Protect locals
+				# TOKEN: (, VALUE: 8, next active register: %rax
+		leaq		.L53(%rip), %rax				# TOKEN: <Ident>, VALUE: 357, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
+		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
+		/*** Returned ***/
+
+		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
+# if
+# RPN'ized expression: "a 21 + b + 31 + 50 c1 + 70 + c2 + == "
+# Expanded expression: "(@-8) *(8) 21 + (@-24) *(8) + 31 + 50 (@-16) *(-1) + 70 + (@-32) *(-1) + == "
+# GenExpr
+		leaq		-8(%rbp), %rax				# TOKEN: <LocalOfs>, VALUE: -8, next active register: %rdi
+		movq		(%rax), %rax				# TOKEN: *u, VALUE: 8, next active register: %rdi
+		movq		$0x15, %rdi				# TOKEN: <NumInt>, VALUE: 21, next active register: %rsi
+		addq		%rdi, %rax				# TOKEN: +, VALUE: 0, next active register: %rdi
+		leaq		-24(%rbp), %rdi				# TOKEN: <LocalOfs>, VALUE: -24, next active register: %rsi
+		movq		(%rdi), %rdi				# TOKEN: *u, VALUE: 8, next active register: %rsi
+		addq		%rdi, %rax				# TOKEN: +, VALUE: 0, next active register: %rdi
+		movq		$0x1f, %rdi				# TOKEN: <NumInt>, VALUE: 31, next active register: %rsi
+		addq		%rdi, %rax				# TOKEN: +, VALUE: 0, next active register: %rdi
+		movq		$0x32, %rdi				# TOKEN: <NumInt>, VALUE: 50, next active register: %rsi
+		leaq		-16(%rbp), %rsi				# TOKEN: <LocalOfs>, VALUE: -16, next active register: %rdx
+		movb		(%rsi), %sil
+		movsxb		%sil, %rsi				# TOKEN: *u, VALUE: -1, next active register: %rdx
+		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
+		movq		$0x46, %rsi				# TOKEN: <NumInt>, VALUE: 70, next active register: %rdx
+		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
+		leaq		-32(%rbp), %rsi				# TOKEN: <LocalOfs>, VALUE: -32, next active register: %rdx
+		movb		(%rsi), %sil
+		movsxb		%sil, %rsi				# TOKEN: *u, VALUE: -1, next active register: %rdx
+		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
+		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
+		jne			.L54					# TOKEN: <IfNot>, VALUE: 54, next active register: %rax
+
+		.section	.rodata, "a", @progbits
+.L56:
+		.ascii		"ok"
+		.skip		1
+
+		.text
+		.code64
+# RPN'ized expression: "( L56 puts ) "
+# Expanded expression: " L56  puts ()8 "
+# GenExpr
+		subq		$256, %rsp # Protect locals
+				# TOKEN: (, VALUE: 8, next active register: %rax
+		leaq		.L56(%rip), %rax				# TOKEN: <Ident>, VALUE: 361, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
+		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
+		/*** Returned ***/
+
+		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
+		jmp			.L55
+.L54:
+# else
+# RPN'ized expression: "( abort ) "
+# Expanded expression: " abort ()0 "
+# GenExpr
+		subq		$256, %rsp # Protect locals
+				# TOKEN: (, VALUE: 0, next active register: %rax
+		call		abort				# TOKEN: <Ident>, VALUE: 123, next active register: %rax
+		/*** Returned ***/
+
+		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
+.L55:
 # if
 # RPN'ized expression: "( test4 ) 6 == "
 # Expanded expression: " test4 ()0 6 == "
@@ -1111,29 +1176,29 @@ main:
 		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
 		movq		$0x6, %rdi				# TOKEN: <NumInt>, VALUE: 6, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
-		jne			.L53					# TOKEN: <IfNot>, VALUE: 53, next active register: %rax
+		jne			.L57					# TOKEN: <IfNot>, VALUE: 57, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L55:
+.L59:
 		.ascii		"test 4 passed"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L55 puts ) "
-# Expanded expression: " L55  puts ()8 "
+# RPN'ized expression: "( L59 puts ) "
+# Expanded expression: " L59  puts ()8 "
 # GenExpr
 		subq		$256, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L55(%rip), %rax				# TOKEN: <Ident>, VALUE: 358, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L59(%rip), %rax				# TOKEN: <Ident>, VALUE: 365, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$256, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-		jmp			.L54
-.L53:
+		jmp			.L58
+.L57:
 # else
 # RPN'ized expression: "( abort ) "
 # Expanded expression: " abort ()0 "
@@ -1144,7 +1209,7 @@ main:
 		/*** Returned ***/
 
 		addq		$256, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
-.L54:
+.L58:
 # loc     x : (@-40) : int
 # RPN'ized expression: "x 150 -u = "
 # Expanded expression: "(@-40) -150 =(8) "
@@ -1182,20 +1247,20 @@ main:
 		movq		%rdi, (%rax)				# TOKEN: =, VALUE: 8, next active register: %rdi
 
 		.section	.rodata, "a", @progbits
-.L56:
+.L60:
 		.ascii		"checking sum of the newly declared locals.."
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L56 puts ) "
-# Expanded expression: " L56  puts ()8 "
+# RPN'ized expression: "( L60 puts ) "
+# Expanded expression: " L60  puts ()8 "
 # GenExpr
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L56(%rip), %rax				# TOKEN: <Ident>, VALUE: 380, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L60(%rip), %rax				# TOKEN: <Ident>, VALUE: 387, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
@@ -1231,29 +1296,29 @@ main:
 		movq		$0x64, %rsi				# TOKEN: <NumInt>, VALUE: 100, next active register: %rdx
 		subq		%rsi, %rdi				# TOKEN: -, VALUE: 0, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
-		jne			.L57					# TOKEN: <IfNot>, VALUE: 57, next active register: %rax
+		jne			.L61					# TOKEN: <IfNot>, VALUE: 61, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L59:
+.L63:
 		.ascii		"ok"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L59 puts ) "
-# Expanded expression: " L59  puts ()8 "
+# RPN'ized expression: "( L63 puts ) "
+# Expanded expression: " L63  puts ()8 "
 # GenExpr
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L59(%rip), %rax				# TOKEN: <Ident>, VALUE: 384, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L63(%rip), %rax				# TOKEN: <Ident>, VALUE: 391, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-		jmp			.L58
-.L57:
+		jmp			.L62
+.L61:
 # else
 # {
 # if
@@ -1264,28 +1329,28 @@ main:
 		movq		(%rax), %rax				# TOKEN: *u, VALUE: 8, next active register: %rdi
 		movq		$0xffffffffffffff6a, %rdi				# TOKEN: <NumInt>, VALUE: -150, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: !=, VALUE: 0, next active register: %rdi
-		je			.L60					# TOKEN: <IfNot>, VALUE: 60, next active register: %rax
+		je			.L64					# TOKEN: <IfNot>, VALUE: 64, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L62:
+.L66:
 		.ascii		"x changed!"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L62 puts ) "
-# Expanded expression: " L62  puts ()8 "
+# RPN'ized expression: "( L66 puts ) "
+# Expanded expression: " L66  puts ()8 "
 # GenExpr
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L62(%rip), %rax				# TOKEN: <Ident>, VALUE: 388, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L66(%rip), %rax				# TOKEN: <Ident>, VALUE: 395, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-.L60:
+.L64:
 # if
 # RPN'ized expression: "y1 121 != "
 # Expanded expression: "(@-48) *(-1) 121 != "
@@ -1295,28 +1360,28 @@ main:
 		movsxb		%al, %rax				# TOKEN: *u, VALUE: -1, next active register: %rdi
 		movq		$0x79, %rdi				# TOKEN: <NumInt>, VALUE: 121, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: !=, VALUE: 0, next active register: %rdi
-		je			.L63					# TOKEN: <IfNot>, VALUE: 63, next active register: %rax
+		je			.L67					# TOKEN: <IfNot>, VALUE: 67, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L65:
+.L69:
 		.ascii		"y1 changed!"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L65 puts ) "
-# Expanded expression: " L65  puts ()8 "
+# RPN'ized expression: "( L69 puts ) "
+# Expanded expression: " L69  puts ()8 "
 # GenExpr
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L65(%rip), %rax				# TOKEN: <Ident>, VALUE: 392, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L69(%rip), %rax				# TOKEN: <Ident>, VALUE: 399, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-.L63:
+.L67:
 # if
 # RPN'ized expression: "z 170 -u != "
 # Expanded expression: "(@-56) *(8) -170 != "
@@ -1325,28 +1390,28 @@ main:
 		movq		(%rax), %rax				# TOKEN: *u, VALUE: 8, next active register: %rdi
 		movq		$0xffffffffffffff56, %rdi				# TOKEN: <NumInt>, VALUE: -170, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: !=, VALUE: 0, next active register: %rdi
-		je			.L66					# TOKEN: <IfNot>, VALUE: 66, next active register: %rax
+		je			.L70					# TOKEN: <IfNot>, VALUE: 70, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L68:
+.L72:
 		.ascii		"z changed!"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L68 puts ) "
-# Expanded expression: " L68  puts ()8 "
+# RPN'ized expression: "( L72 puts ) "
+# Expanded expression: " L72  puts ()8 "
 # GenExpr
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L68(%rip), %rax				# TOKEN: <Ident>, VALUE: 396, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L72(%rip), %rax				# TOKEN: <Ident>, VALUE: 403, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-.L66:
+.L70:
 # if
 # RPN'ized expression: "w2 0 != "
 # Expanded expression: "(@-64) *(-1) 0 != "
@@ -1356,28 +1421,28 @@ main:
 		movsxb		%al, %rax				# TOKEN: *u, VALUE: -1, next active register: %rdi
 		xorq		%rdi, %rdi				# TOKEN: <NumInt>, VALUE: 0, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: !=, VALUE: 0, next active register: %rdi
-		je			.L69					# TOKEN: <IfNot>, VALUE: 69, next active register: %rax
+		je			.L73					# TOKEN: <IfNot>, VALUE: 73, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L71:
+.L75:
 		.ascii		"w2 changed!"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L71 puts ) "
-# Expanded expression: " L71  puts ()8 "
+# RPN'ized expression: "( L75 puts ) "
+# Expanded expression: " L75  puts ()8 "
 # GenExpr
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L71(%rip), %rax				# TOKEN: <Ident>, VALUE: 400, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L75(%rip), %rax				# TOKEN: <Ident>, VALUE: 407, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-.L69:
+.L73:
 # if
 # RPN'ized expression: "w3 100 -u != "
 # Expanded expression: "(@-72) *(-1) -100 != "
@@ -1387,28 +1452,28 @@ main:
 		movsxb		%al, %rax				# TOKEN: *u, VALUE: -1, next active register: %rdi
 		movq		$0xffffffffffffff9c, %rdi				# TOKEN: <NumInt>, VALUE: -100, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: !=, VALUE: 0, next active register: %rdi
-		je			.L72					# TOKEN: <IfNot>, VALUE: 72, next active register: %rax
+		je			.L76					# TOKEN: <IfNot>, VALUE: 76, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L74:
+.L78:
 		.ascii		"w3 changed!"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L74 puts ) "
-# Expanded expression: " L74  puts ()8 "
+# RPN'ized expression: "( L78 puts ) "
+# Expanded expression: " L78  puts ()8 "
 # GenExpr
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L74(%rip), %rax				# TOKEN: <Ident>, VALUE: 404, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L78(%rip), %rax				# TOKEN: <Ident>, VALUE: 411, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-.L72:
+.L76:
 # RPN'ized expression: "( abort ) "
 # Expanded expression: " abort ()0 "
 # GenExpr
@@ -1419,23 +1484,23 @@ main:
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
 # }
-.L58:
+.L62:
 
 		.section	.rodata, "a", @progbits
-.L75:
+.L79:
 		.ascii		"checking sum of the locals.."
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L75 puts ) "
-# Expanded expression: " L75  puts ()8 "
+# RPN'ized expression: "( L79 puts ) "
+# Expanded expression: " L79  puts ()8 "
 # GenExpr
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L75(%rip), %rax				# TOKEN: <Ident>, VALUE: 388, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L79(%rip), %rax				# TOKEN: <Ident>, VALUE: 395, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
@@ -1465,29 +1530,29 @@ main:
 		movsxb		%sil, %rsi				# TOKEN: *u, VALUE: -1, next active register: %rdx
 		addq		%rsi, %rdi				# TOKEN: +, VALUE: 0, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
-		jne			.L76					# TOKEN: <IfNot>, VALUE: 76, next active register: %rax
+		jne			.L80					# TOKEN: <IfNot>, VALUE: 80, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L78:
+.L82:
 		.ascii		"ok"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L78 puts ) "
-# Expanded expression: " L78  puts ()8 "
+# RPN'ized expression: "( L82 puts ) "
+# Expanded expression: " L82  puts ()8 "
 # GenExpr
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L78(%rip), %rax				# TOKEN: <Ident>, VALUE: 392, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L82(%rip), %rax				# TOKEN: <Ident>, VALUE: 399, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-		jmp			.L77
-.L76:
+		jmp			.L81
+.L80:
 # else
 # RPN'ized expression: "( abort ) "
 # Expanded expression: " abort ()0 "
@@ -1498,7 +1563,7 @@ main:
 		/*** Returned ***/
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
-.L77:
+.L81:
 # if
 # RPN'ized expression: "( 5 -u , 1 , 3 test5 ) 1 + 0 == "
 # Expanded expression: " -5  1  3  test5 ()24 1 + 0 == "
@@ -1506,14 +1571,14 @@ main:
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 24, next active register: %rax
 		movq		$0xfffffffffffffffb, %rax				# TOKEN: <NumInt>, VALUE: -5, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		$0x1, %rax				# TOKEN: <NumInt>, VALUE: 1, next active register: %rdi
 		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		$0x3, %rax				# TOKEN: <NumInt>, VALUE: 3, next active register: %rdi
+		movq		$0x1, %rax				# TOKEN: <NumInt>, VALUE: 1, next active register: %rdi
 		movq		%rax, -16(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
-		movq		-8(%rsp), %rsi
-		movq		-16(%rsp), %rdx
+		movq		$0x3, %rax				# TOKEN: <NumInt>, VALUE: 3, next active register: %rdi
+		movq		%rax, -24(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
+		movq		-16(%rsp), %rsi
+		movq		-24(%rsp), %rdx
 		call		test5				# TOKEN: <Ident>, VALUE: 256, next active register: %rax
 		/*** Returned ***/
 
@@ -1522,29 +1587,29 @@ main:
 		addq		%rdi, %rax				# TOKEN: +, VALUE: 0, next active register: %rdi
 		xorq		%rdi, %rdi				# TOKEN: <NumInt>, VALUE: 0, next active register: %rsi
 		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
-		jne			.L79					# TOKEN: <IfNot>, VALUE: 79, next active register: %rax
+		jne			.L83					# TOKEN: <IfNot>, VALUE: 83, next active register: %rax
 
 		.section	.rodata, "a", @progbits
-.L81:
+.L85:
 		.ascii		"test 5 passed"
 		.skip		1
 
 		.text
 		.code64
-# RPN'ized expression: "( L81 puts ) "
-# Expanded expression: " L81  puts ()8 "
+# RPN'ized expression: "( L85 puts ) "
+# Expanded expression: " L85  puts ()8 "
 # GenExpr
 		subq		$576, %rsp # Protect locals
 				# TOKEN: (, VALUE: 8, next active register: %rax
-		leaq		.L81(%rip), %rax				# TOKEN: <Ident>, VALUE: 396, next active register: %rdi
-		movq		%rax, -0(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
-		movq		-0(%rsp), %rdi
+		leaq		.L85(%rip), %rax				# TOKEN: <Ident>, VALUE: 403, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
 		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
 		/*** Returned ***/
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
-		jmp			.L80
-.L79:
+		jmp			.L84
+.L83:
 # else
 # RPN'ized expression: "( abort ) "
 # Expanded expression: " abort ()0 "
@@ -1555,11 +1620,129 @@ main:
 		/*** Returned ***/
 
 		addq		$576, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
-.L80:
+.L84:
+# if
+# RPN'ized expression: "1 y1 + ( 5 -u , 1 , 3 test5 ) + y1 == "
+# Expanded expression: "1 (@-48) *(-1) +  -5  1  3  test5 ()24 + (@-48) *(-1) == "
+# GenExpr
+		movq		$0x1, %rax				# TOKEN: <NumInt>, VALUE: 1, next active register: %rdi
+		leaq		-48(%rbp), %rdi				# TOKEN: <LocalOfs>, VALUE: -48, next active register: %rsi
+		movb		(%rdi), %dil
+		movsxb		%dil, %rdi				# TOKEN: *u, VALUE: -1, next active register: %rsi
+		addq		%rdi, %rax				# TOKEN: +, VALUE: 0, next active register: %rdi
+		subq		$576, %rsp # Protect locals
+		pushq		%rax # Save register in use
+				# TOKEN: (, VALUE: 24, next active register: %rax
+		movq		$0xfffffffffffffffb, %rax				# TOKEN: <NumInt>, VALUE: -5, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		$0x1, %rax				# TOKEN: <NumInt>, VALUE: 1, next active register: %rdi
+		movq		%rax, -16(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		$0x3, %rax				# TOKEN: <NumInt>, VALUE: 3, next active register: %rdi
+		movq		%rax, -24(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
+		movq		-16(%rsp), %rsi
+		movq		-24(%rsp), %rdx
+		call		test5				# TOKEN: <Ident>, VALUE: 256, next active register: %rax
+		/*** Returned ***/
+
+		popq		%rdi # Restore register in use
+
+		addq		$576, %rsp				# TOKEN: ), VALUE: 24, next active register: %rsi
+		addq		%rdi, %rax				# TOKEN: +, VALUE: 0, next active register: %rdi
+		leaq		-48(%rbp), %rdi				# TOKEN: <LocalOfs>, VALUE: -48, next active register: %rsi
+		movb		(%rdi), %dil
+		movsxb		%dil, %rdi				# TOKEN: *u, VALUE: -1, next active register: %rsi
+		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
+		jne			.L86					# TOKEN: <IfNot>, VALUE: 86, next active register: %rax
+
+		.section	.rodata, "a", @progbits
+.L88:
+		.ascii		"test 5' passed"
+		.skip		1
+
+		.text
+		.code64
+# RPN'ized expression: "( L88 puts ) "
+# Expanded expression: " L88  puts ()8 "
+# GenExpr
+		subq		$576, %rsp # Protect locals
+				# TOKEN: (, VALUE: 8, next active register: %rax
+		leaq		.L88(%rip), %rax				# TOKEN: <Ident>, VALUE: 407, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
+		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
+		/*** Returned ***/
+
+		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
+		jmp			.L87
+.L86:
+# else
+# RPN'ized expression: "( abort ) "
+# Expanded expression: " abort ()0 "
+# GenExpr
+		subq		$576, %rsp # Protect locals
+				# TOKEN: (, VALUE: 0, next active register: %rax
+		call		abort				# TOKEN: <Ident>, VALUE: 123, next active register: %rax
+		/*** Returned ***/
+
+		addq		$576, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
+.L87:
+# if
+# RPN'ized expression: "10 ( 4 test6 ) == "
+# Expanded expression: "10  4  test6 ()8 == "
+# GenExpr
+		movq		$0xa, %rax				# TOKEN: <NumInt>, VALUE: 10, next active register: %rdi
+		subq		$576, %rsp # Protect locals
+		pushq		%rax # Save register in use
+				# TOKEN: (, VALUE: 8, next active register: %rax
+		movq		$0x4, %rax				# TOKEN: <NumInt>, VALUE: 4, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
+		call		test6				# TOKEN: <Ident>, VALUE: 272, next active register: %rax
+		/*** Returned ***/
+
+		popq		%rdi # Restore register in use
+
+		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rsi
+		cmpq		%rdi, %rax				# TOKEN: ==, VALUE: 0, next active register: %rdi
+		jne			.L89					# TOKEN: <IfNot>, VALUE: 89, next active register: %rax
+
+		.section	.rodata, "a", @progbits
+.L91:
+		.ascii		"test 6 (recursion) passed"
+		.skip		1
+
+		.text
+		.code64
+# RPN'ized expression: "( L91 puts ) "
+# Expanded expression: " L91  puts ()8 "
+# GenExpr
+		subq		$576, %rsp # Protect locals
+				# TOKEN: (, VALUE: 8, next active register: %rax
+		leaq		.L91(%rip), %rax				# TOKEN: <Ident>, VALUE: 411, next active register: %rdi
+		movq		%rax, -8(%rsp)				# TOKEN: ,, VALUE: 0, next active register: %rax
+		movq		-8(%rsp), %rdi
+		call		puts				# TOKEN: <Ident>, VALUE: 130, next active register: %rax
+		/*** Returned ***/
+
+		addq		$576, %rsp				# TOKEN: ), VALUE: 8, next active register: %rdi
+		jmp			.L90
+.L89:
+# else
+# RPN'ized expression: "( abort ) "
+# Expanded expression: " abort ()0 "
+# GenExpr
+		subq		$576, %rsp # Protect locals
+				# TOKEN: (, VALUE: 0, next active register: %rax
+		call		abort				# TOKEN: <Ident>, VALUE: 123, next active register: %rax
+		/*** Returned ***/
+
+		addq		$576, %rsp				# TOKEN: ), VALUE: 0, next active register: %rdi
+.L90:
 # GenExpr
 		xorq		%rax, %rax				# TOKEN: <NumInt>, VALUE: 0, next active register: %rdi
 		/*** Result in rax ***/				# TOKEN: return, VALUE: 0, next active register: %rdi
-.L21:
+.L25:
 		addq		$0x10, %rsp				# Free the space used by the homed parameters and locals
 		addq		$16, %rsp				# TODO: Stack cookie
 		popq		%rbp					# Restore rbp
@@ -1570,7 +1753,7 @@ main:
 # NYI: GenFin
 
 # Syntax/declaration table/stack:
-# Bytes used: 390/15360
+# Bytes used: 420/15360
 
 
 # Macro table:
@@ -1614,10 +1797,11 @@ main:
 # Ident a
 # Ident b
 # Ident c
+# Ident test6
 # Ident main
 # Ident argc
 # Ident argv
-# Bytes used: 290/5632
+# Bytes used: 297/5632
 
-# Next label number: 82
+# Next label number: 92
 # Compilation succeeded.

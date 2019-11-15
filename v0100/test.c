@@ -88,17 +88,16 @@ int test5(int a, int b, int c)
     return a + b + c;
 }
 
-/*
 int test6(int a)
 {
-    if (a == 0)
+    if (a > 0)
     {
-        return a;
+        return a + test6(a-1);
     }
 
-    return a + test5(a-1);
+    return 0;
 }
-*/
+
 void main(int argc, char** argv)
 {
     int  a  = 50;
@@ -196,17 +195,13 @@ void main(int argc, char** argv)
     else
         abort();
 
-/*
-    if (1 + test5(3, 1,-5)== 0)
+    if (1 + y1 + test5(3, 1,-5) == y1)
         puts("test 5' passed");
     else
         abort();
-*/
 
-/*
-    if (test6(1) == 1)
+    if (10 == test6(4))
         puts("test 6 (recursion) passed");
     else
         abort();
-*/
 }

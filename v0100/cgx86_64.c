@@ -43,16 +43,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /* These registers are used as a stack when calculating expressions*/
 
-char*           scratch_registers_q[] = { "%rax", "%rdi", "%rsi", "%rdx", "%rcx", "%r8",  "%r9",  "%r10",  "%r11"  };
-char*           scratch_registers_l[] = { "%eax", "%edi", "%esi", "%edx", "%ecx", "%r8d", "%r9d", "%r10d", "%r11d" };
-char*           scratch_registers_w[] = {  "%ax",  "%di",  "%si",  "%dx",  "%cx", "%r8w", "%r9w", "%r10w", "%r11w" };
-char*           scratch_registers_b[] = {  "%al", "%dil", "%sil",  "%dl",  "%cl", "%r8b", "%r9b", "%r10b", "%r11b" };
+const char*     scratch_registers_q[] = { "%rax", "%rdi", "%rsi", "%rdx", "%rcx", "%r8",  "%r9",  "%r10",  "%r11"  };
+const char*     scratch_registers_l[] = { "%eax", "%edi", "%esi", "%edx", "%ecx", "%r8d", "%r9d", "%r10d", "%r11d" };
+const char*     scratch_registers_w[] = {  "%ax",  "%di",  "%si",  "%dx",  "%cx", "%r8w", "%r9w", "%r10w", "%r11w" };
+const char*     scratch_registers_b[] = {  "%al", "%dil", "%sil",  "%dl",  "%cl", "%r8b", "%r9b", "%r10b", "%r11b" };
 const unsigned  max_scratch_reg = sizeof scratch_registers_q / sizeof scratch_registers_q[0];
 
-char*           scratch_registers_indirect[] = { "(%rax)", "(%rdi)", "(%rsi)", "(%rdx)", "(%rcx)", "(%r8)", "(%r9)", "(%r10)", "(%r11)" };
+const char*     scratch_registers_indirect[] = { "(%rax)", "(%rdi)", "(%rsi)", "(%rdx)", "(%rcx)", "(%r8)", "(%r9)", "(%r10)", "(%r11)" };
 
-char*           arg_registers_q[] = { "%rdi", "%rsi", "%rdx", "%rcx", "%r8",  "%r9",  "%r10",  "%r11" };
+const char*     arg_registers_q[] = { "%rdi", "%rsi", "%rdx", "%rcx", "%r8",  "%r9",  "%r10",  "%r11" };
 const unsigned  max_arg_reg = sizeof arg_registers_q / sizeof arg_registers_q[0];
+
+unsigned        last_scratch_reg = 0;
 
 STATIC
 void GenAddrData(int Size, char* Label, int ofs)
@@ -126,8 +128,8 @@ void x64GenIfNot(unsigned op, unsigned label_num)
 STATIC
 void x64GenAssign(unsigned active_reg, signed size)
 {
-  char    size_suff = '?';
-  char**  scratch_registers = NULL;
+  char          size_suff = '?';
+  const char**  scratch_registers = NULL;
 
   if (active_reg < 2)
   {
@@ -171,8 +173,8 @@ void x64GenAssign(unsigned active_reg, signed size)
 STATIC
 void x64GenDeref(unsigned active_reg, signed size)
 {
-  char    size_suff = '?';
-  char**  scratch_registers = NULL;
+  char          size_suff = '?';
+  const char**  scratch_registers = NULL;
 
   if (active_reg == 0)
   {
@@ -233,6 +235,11 @@ STATIC
 void x64GenALU(unsigned active_reg, signed op)
 {
   const char* op_str = "";
+
+  if (active_reg < 2)
+  {
+    errorInternal(6400018);
+  }
 
   /* 
     Mul and Div need special treatment as they have signed and unsigned versions,
@@ -313,13 +320,19 @@ void GenExpr(void)
         printf2("\t\tsubq\t\t$%ld, %%rsp # Protect locals\n", abs(CurFxnMinLocalOfs)*8);
       }
 
+      for (int r = 0; r < current_active_reg; ++r)
+      {
+         printf2("\t\tpushq\t\t%s # Save register in use\n", scratch_registers_q[r]);
+      }
+
+      last_scratch_reg = current_active_reg;
+      current_active_reg = 0;
       current_arg_reg = 0;
       break;
 
     case ',':
-      printf2("\t\tmovq\t\t%s, -%d(%rsp)", scratch_registers_q[--current_active_reg], 8*current_arg_reg);
+      printf2("\t\tmovq\t\t%s, -%d(%rsp)", scratch_registers_q[--current_active_reg], 8*(++current_arg_reg));
 
-      ++current_arg_reg;
       break;
 
     case tokIdent:
@@ -332,7 +345,7 @@ void GenExpr(void)
       {
         for (int r = 0; r < current_arg_reg; ++r)
         {
-          printf2("\t\tmovq\t\t-%d(%rsp), %s\n", 8*r, arg_registers_q[r]);
+          printf2("\t\tmovq\t\t-%d(%rsp), %s\n", 8*(r+1), arg_registers_q[r]);
         }
 
         printf2("\t\tcall\t\t%s", &IdentTable[v]);
@@ -358,13 +371,21 @@ void GenExpr(void)
 
       printf2("\t\t/*** Returned ***/\n", v);
 
+      /* Preserve its result */
+      current_active_reg += 1;
+ 
+      for (int r = last_scratch_reg - 1; r >= 0; --r)
+      {
+        printf2("\n\t\tpopq\t\t%s # Restore register in use\n", scratch_registers_q[current_active_reg + r]);
+      }
+
+      current_active_reg += last_scratch_reg;
+
       if (CurFxnMinLocalOfs != 0)
       {
         printf2("\n\t\taddq\t\t$%ld, %%rsp", abs(CurFxnMinLocalOfs)*8);
       }
 
-      /* Preserve its result */
-      current_active_reg += 1;
       break;
 
     case '+':
@@ -392,6 +413,11 @@ void GenExpr(void)
     case tokUGEQ:
     case '>':
     case '<':
+      if (current_active_reg < 2)
+      {
+        errorInternal(6400014);
+      }
+
       latest_compare_op = tok;
       printf2("\t\tcmpq\t\t%s, %s", scratch_registers_q[current_active_reg - 1], scratch_registers_q[current_active_reg - 2]);
 
