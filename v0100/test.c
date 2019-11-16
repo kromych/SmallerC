@@ -160,10 +160,10 @@ void main(int argc, char** argv)
     else
         abort();
 
-    // if (test1() + test1() == test1() + test1())
-    //     puts("test 1''' passed");
-    // else
-    //     abort();
+    if (test1() + test1() == test1() + test1())
+        puts("test 1''' passed");
+    else
+        abort();
 
     puts("checking sum of the locals.."); 
     if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
@@ -239,12 +239,12 @@ void main(int argc, char** argv)
     else
         abort();
 
-    // if (y1 + test5(3, 1,-5) == y1 + test5(3, 1,-5))
-    //     puts("test 5'' passed");
-    // else
-    //     abort();
+    if (y1 + test5(3, 1,-5) == y1 + test5(3, 1,-5))
+        puts("test 5'' passed");
+    else
+        abort();
 
-    if (5050 + test6(100) == 10100)
+    if (5050 + test6(100) == test6(100) + 5050)
         puts("test 6 (recursion) passed");
     else
         abort();

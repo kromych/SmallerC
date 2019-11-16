@@ -325,7 +325,7 @@ void GenExpr(void)
          printf2("\t\tpushq\t\t%s # Save register in use\n", scratch_registers_q[r]);
       }
 
-      last_scratch_reg = current_active_reg;
+      last_scratch_reg = current_active_reg - 1;
       current_active_reg = 0;
       current_arg_reg = 0;
       break;
@@ -372,14 +372,20 @@ void GenExpr(void)
       printf2("\t\t/*** Returned ***/\n", v);
 
       /* Preserve its result */
-      current_active_reg += 1;
- 
-      for (int r = last_scratch_reg - 1; r >= 0; --r)
+      if (last_scratch_reg + 1 != 0)
       {
-        printf2("\n\t\tpopq\t\t%s # Restore register in use\n", scratch_registers_q[current_active_reg + r]);
+        // If any registers were in use before the call,
+        // move the result past the last used one
+
+        printf2("\n\t\tmovq\t\t%%rax, %s # Save result\n", scratch_registers_q[last_scratch_reg + 1]);
       }
 
-      current_active_reg += last_scratch_reg;
+      for (int r = last_scratch_reg; r >= 0; --r)
+      {
+        printf2("\n\t\tpopq\t\t%s # Restore register in use\n", scratch_registers_q[r]);
+      }
+
+      current_active_reg = last_scratch_reg + 2;
 
       if (CurFxnMinLocalOfs != 0)
       {
