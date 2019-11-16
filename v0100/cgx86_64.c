@@ -546,9 +546,9 @@ void GenIntData(int Size, int Val)
   if (Size == 1)
     printf2("\t\t.byte\t\t%d\n", Val);
   else if (Size == 2)
-    printf2("\t\t.half\t\t%d\n", Val);
+    printf2("\t\t.short\t\t%d\n", Val);
   else if (Size == 4)
-    printf2("\t\t.word\t\t%d\n", Val);
+    printf2("\t\t.int\t\t%d\n", Val);
   else if (Size == 8)
     printf2("\t\t.quad\t\t%d\n", Val);
 }

@@ -105,6 +105,30 @@ void main(int argc, char** argv)
     int  b  = 70;
     char c2 = 31;
 
+    if (sizeof(char) != 1)
+    {
+        puts("Wrong size for char");
+        abort();
+    }
+
+    if (sizeof(short) != 2)
+    {
+        puts("Wrong size for short");
+        abort();
+    }
+
+    if (sizeof(int) != 4)
+    {
+        puts("Wrong size for int");
+        abort();
+    }
+
+    if (sizeof(long) != 8)
+    {
+        puts("Wrong size for long");
+        abort();
+    }
+
     puts("checking sum of the locals.."); 
     if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
         puts("ok"); 
@@ -200,7 +224,7 @@ void main(int argc, char** argv)
     else
         abort();
 
-    if (10 == test6(4))
+    if (5050 + test6(100) == 10100)
         puts("test 6 (recursion) passed");
     else
         abort();

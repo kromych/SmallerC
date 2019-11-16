@@ -6399,7 +6399,37 @@ int GetDeclSize(int SyntaxPtr, int SizeForDeref)
       return (int)size;
 #endif
     case tokInt:
+#ifdef CAN_COMPILE_64BIT
+      if (!arr && SizeForDeref)
+        return -4; // 4 bytes, needing sign extension when converted to long/unsigned long
+      // fallthrough
+#endif
     case tokUnsigned:
+#ifdef CAN_COMPILE_64BIT
+      if (size * 4 / 4 != size)
+        //error("Variable too big\n");
+        errorVarSize();
+      size *= 4;
+      if (size != truncUint(size))
+        //error("Variable too big\n");
+        errorVarSize();
+      return (int)size;
+#endif
+#ifdef CAN_COMPILE_64BIT
+    case tokLong:
+      if (!arr && SizeForDeref)
+        return -8; // 8 bytes
+      // fallthrough
+    case tokULong:
+      if (size * 8 / 8 != size)
+        //error("Variable too big\n");
+        errorVarSize();
+      size *= 8;
+      if (size != truncUint(size))
+        //error("Variable too big\n");
+        errorVarSize();
+      return (int)size;
+#endif
 #ifndef NO_FP
     case tokFloat:
 #endif
@@ -6482,6 +6512,11 @@ int GetDeclAlignment(int SyntaxPtr)
 #endif
     case tokInt:
     case tokUnsigned:
+#ifdef CAN_COMPILE_64BIT
+      return 4;
+    case tokLong:
+    case tokULong:
+#endif
 #ifndef NO_FP
     case tokFloat:
 #endif
@@ -7098,10 +7133,12 @@ lcont:
     valid = 0;
   // to simplify matters, treat long and unsigned long as aliases for int and unsigned int
   // in 32-bit and huge mode(l)s
+#ifndef CAN_COMPILE_64BIT
   if (*base == tokLong)
     *base = tokInt;
   if (*base == tokULong)
     *base = tokUnsigned;
+#endif
 #endif
 
   if (SizeOfWord == 2)
