@@ -98,6 +98,37 @@ int test6(int a)
     return 0;
 }
 
+int test7(int a)
+{
+    if (a > 2)
+    {
+        return test7(a-1) + test7(a-2);
+    }
+
+    return 1;
+}
+
+int is_even(unsigned int n) 
+{
+    if (n == 0)
+        return 1;
+    else
+        return is_odd(n - 1);
+}
+
+int is_odd(unsigned int n) 
+{
+    if (n == 0)
+        return 0;
+    else
+        return is_even(n - 1);
+}
+
+int test8(int n)
+{
+    return is_even(n);
+}
+
 void main(int argc, char** argv)
 {
     int  a  = 50;
@@ -245,7 +276,17 @@ void main(int argc, char** argv)
         abort();
 
     if (5050 + test6(100) == test6(100) + 5050)
-        puts("test 6 (recursion) passed");
+        puts("test 6 (recursion, sum of consequtive non-negative integers) passed");
+    else
+        abort();
+
+    if (144 + test7(12) == test7(12) + 144)
+        puts("test 7 (recursion, Fibonacci numbers) passed");
+    else
+        abort();
+
+    if (test8(12) == 1)
+        puts("test 8 (mutual recursion) passed");
     else
         abort();
 }

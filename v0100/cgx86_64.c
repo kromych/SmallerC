@@ -216,8 +216,6 @@ void x64GenDeref(unsigned active_reg, signed size)
 
   if (abs(size) < 8) 
   {
-    /* For 32 bit registers, zero-extend is performed by the hardware ? */
-
     if (size < 0) 
     {
       /* Sign-extend */
@@ -225,8 +223,13 @@ void x64GenDeref(unsigned active_reg, signed size)
     }
     else
     {
-      /* Zero-extend */
-      printf2("\n\t\tmovzx%c\t\t%s, %s", size_suff, scratch_registers[active_reg - 1], scratch_registers_q[active_reg - 1]);
+      /* For 32 bit registers, zero-extend is performed by the hardware */
+
+      if (size != 4)
+      {
+        /* Zero-extend */
+        printf2("\n\t\tmovzx%c\t\t%s, %s", size_suff, scratch_registers[active_reg - 1], scratch_registers_q[active_reg - 1]);
+      }
     }
   }
 }
