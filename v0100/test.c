@@ -1,5 +1,5 @@
 extern void abort();
-extern void puts(const char*);
+extern int puts(const char*);
 
 void test0()
 {
@@ -108,6 +108,8 @@ int test7(int a)
     return 1;
 }
 
+int is_odd(unsigned int n);
+
 int is_even(unsigned int n) 
 {
     if (n == 0)
@@ -129,7 +131,7 @@ int test8(int n)
     return is_even(n);
 }
 
-void main(int argc, char** argv)
+int main(int argc, char** argv)
 {
     int  a  = 50;
     char c1 = 21;
@@ -161,10 +163,13 @@ void main(int argc, char** argv)
     }
 
     puts("checking sum of the locals.."); 
-    if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
+    if (a + 21 + b + 31 == 50 + c1 + 70 + c2)
         puts("ok"); 
-    else 
+    else
+    {
+        puts("failed");
         abort(); 
+    }
 
     puts("Running test 0");
 
@@ -174,60 +179,93 @@ void main(int argc, char** argv)
     if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
         puts("ok"); 
     else 
+    {
+        puts("failed");
         abort(); 
+    }
 
     if (test1() == 1)
         puts("test 1 passed");
     else
-        abort();
+    {
+        puts("test 1 failed");
+        abort(); 
+    }
 
     if (1 == test1())
         puts("test 1' passed");
     else
-        abort();
+    {
+        puts("test 1' failed");
+        abort(); 
+    }
 
     if (test1() + test1() + test1() == 3)
         puts("test 1'' passed");
     else
-        abort();
+    {
+        puts("test 1'' failed");
+        abort(); 
+    }
 
     if (test1() + test1() == test1() + test1())
         puts("test 1''' passed");
     else
-        abort();
+    {
+        puts("test 1''' failed");
+        abort(); 
+    }
 
     puts("checking sum of the locals.."); 
     if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
         puts("ok"); 
     else 
+    {
+        puts("failed");
         abort(); 
+    }
 
     if (test2() == 2)
         puts("test 2 passed");
     else
-        abort();
+    {
+        puts("test 2 failed");
+        abort(); 
+    }
 
     puts("checking sum of the locals.."); 
     if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
         puts("ok"); 
     else 
+    {
+        puts("failed");
         abort(); 
+    }
 
     if (test3() == 4)
         puts("test 3 passed");
     else
-        abort();
+    {
+        puts("test 3 failed");
+        abort(); 
+    }
 
     puts("checking sum of the locals.."); 
     if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
         puts("ok"); 
     else 
+    {
+        puts("failed");
         abort(); 
+    }
 
     if (test4() == 6)
         puts("test 4 passed");
     else
-        abort();
+    {
+        puts("test 4 failed");
+        abort(); 
+    }
 
     int  x  = -150;
     char y1 = 121;
@@ -251,6 +289,7 @@ void main(int argc, char** argv)
         if (w3 != -100)
             puts("w3 changed!");
 
+        puts("failed");
         abort();
     }
 
@@ -258,35 +297,56 @@ void main(int argc, char** argv)
     if (a + 21 + b + 31 == 50 + c1 + 70 + c2) 
         puts("ok"); 
     else 
+    {
+        puts("failed");
         abort(); 
+    }
 
     if (test5(3, 1,-5) + 1== 0)
         puts("test 5 passed");
     else
-        abort();
+    {
+        puts("test 5 failed");
+        abort(); 
+    }
 
     if (1 + y1 + test5(3, 1,-5) == y1)
         puts("test 5' passed");
     else
-        abort();
+    {
+        puts("test 5' failed");
+        abort(); 
+    }
 
     if (y1 + test5(3, 1,-5) == y1 + test5(3, 1,-5))
         puts("test 5'' passed");
     else
-        abort();
+    {
+        puts("test 5'' failed");
+        abort(); 
+    }
 
     if (5050 + test6(100) == test6(100) + 5050)
         puts("test 6 (recursion, sum of consequtive non-negative integers) passed");
     else
-        abort();
+    {
+        puts("test 6 (recursion, sum of consequtive non-negative integers) failed");
+        abort(); 
+    }
 
     if (144 + test7(12) == test7(12) + 144)
         puts("test 7 (recursion, Fibonacci numbers) passed");
     else
-        abort();
+    {
+        puts("test 7 (recursion, Fibonacci numbers) failed");
+        abort(); 
+    }
 
     if (test8(12) == 1)
         puts("test 8 (mutual recursion) passed");
     else
-        abort();
+    {
+        puts("test 8 (mutual recursion) failed");
+        abort(); 
+    }
 }
